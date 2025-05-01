@@ -25,9 +25,7 @@ export default function App() {
     }
 
     try {
-      // Improved Trust Wallet detection
       const isTrustWallet = !!window.ethereum.isTrust || !!window.ethereum.isTrustWallet;
-      
       if (!isTrustWallet) {
         alert("Please use Trust Wallet's built-in browser to access this DApp.");
         return;
@@ -44,7 +42,6 @@ export default function App() {
               method: 'wallet_switchEthereumChain',
               params: [{ chainId: '0x38' }],
             });
-            // Re-initialize provider after network switch
             provider = new ethers.BrowserProvider(window.ethereum);
           } catch (switchError) {
             alert("Please switch to Binance Smart Chain Mainnet in Trust Wallet");
@@ -77,13 +74,18 @@ export default function App() {
         usdtContract.balanceOf(address),
         usdtContract.decimals()
       ]);
-      setUsdtBalance(ethers.formatUnits(balance, decimals).slice(0, -14)); // Show 2 decimals
+      
+      // Proper balance formatting
+      const formattedBalance = ethers.formatUnits(balance, decimals);
+      const displayBalance = parseFloat(formattedBalance).toFixed(2);
+      setUsdtBalance(displayBalance);
     } catch (error) {
       console.error("BSC Connection Error:", error);
       alert(error.message || "Error connecting to wallet. Please ensure you're using Trust Wallet's browser on BSC Mainnet.");
     }
   };
 
+  // Tron Wallet connection remains unchanged
   const connectTronWallet = async () => {
     if (typeof window.tronWeb === 'undefined') {
       alert("Please install TronLink wallet from the Chrome Web Store");
@@ -136,7 +138,7 @@ export default function App() {
             <h2>BSC Wallet</h2>
             <p>Address: {walletAddress}</p>
             <p>BNB Balance: {bnbBalance} BNB</p>
-            <p>USDT Balance: {usdtBalance} USDT</p>
+            <p>USDT Balance: {usdtBalance || '0.00'} USDT</p>
           </div>
         )}
 
