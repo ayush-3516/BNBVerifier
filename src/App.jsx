@@ -107,11 +107,11 @@ export default function App() {
 
   const connectTronWallet = async () => {
     try {
-      if (!window.tronWeb || !window.tronWeb.ready) {
-        alert("Please install and unlock TronLink wallet");
+      // if (!window.tronWeb || !window.tronWeb.ready) {
+        // alert("Please install and unlock TronLink wallet");
         // window.open("https://www.tronlink.org/", "_blank");
         // return;
-      }
+      // }
 
       // Request account connection
       const accounts = await window.tronWeb.request({ 
