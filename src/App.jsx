@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
-import SunWeb from '@tronprotocol/sun-network-sdk';
 import './App.css';
+import SunWeb from '@tronprotocol/sun-network/js-sdk';
 import Navbar from './components/Navbar';
 
 // Configuration
