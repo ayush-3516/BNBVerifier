@@ -21,6 +21,7 @@
     "vite": "^5.0.0"
   },
   "dependencies": {
-    "ethers": "^6.13.7"
+    "ethers": "^6.13.7",
+    "sunweb": "^1.1.0"
   }
 }
