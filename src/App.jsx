@@ -5,21 +5,45 @@ import Navbar from './components/Navbar';
 
 const BSC_USDT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955";
 const TRON_USDT_ADDRESS = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
-const TRON_MAINNET_HEX = "0x2b6653dc";
-const TRON_MAINNET_DECIMAL = 728126428;
+const TRON_MAINNET_NODE = "https://api.trongrid.io";
 const ERC20_ABI = [
-  // Keep existing ABI
+  {
+    constant: true,
+    inputs: [{ name: "owner", type: "address" }],
+    name: "balanceOf",
+    outputs: [{ name: "", type: "uint256" }],
+    payable: false,
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    constant: true,
+    inputs: [],
+    name: "decimals",
+    outputs: [{ name: "", type: "uint8" }],
+    payable: false,
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    constant: true,
+    inputs: [],
+    name: "symbol",
+    outputs: [{ name: "", type: "string" }],
+    payable: false,
+    stateMutability: "view",
+    type: "function",
+  },
 ];
 
 export default function App() {
-    const [walletAddress, setWalletAddress] = useState(null);
+  const [walletAddress, setWalletAddress] = useState(null);
   const [bnbBalance, setBnbBalance] = useState(null);
   const [usdtBalance, setUsdtBalance] = useState(null);
   const [tronAddress, setTronAddress] = useState(null);
   const [trxBalance, setTrxBalance] = useState(null);
   const [tronUsdtBalance, setTronUsdtBalance] = useState(null);
 
-  // BSC Wallet Connection
   const connectBSCWallet = async () => {
     if (!window.ethereum) {
       alert("Please install Trust Wallet and open in Trust Wallet's browser");
@@ -78,133 +102,95 @@ export default function App() {
       
       setUsdtBalance(parseFloat(ethers.formatUnits(usdtBal, decimals)).toFixed(2));
     } catch (error) {
-      console.error("BSC Error:", error);
       alert(error.message || "BSC connection failed");
     }
   };
 
-  // TRON Wallet Connection with enhanced checks
   const connectTronWallet = async () => {
     try {
-      console.log('[TRON] Initializing connection...');
-      
       if (!window.tronWeb) {
         const install = confirm("TronLink not detected! Install?");
         if (install) window.open("https://www.tronlink.org/");
         return;
       }
 
-      // Request accounts first as recommended
-      const { code, message } = await window.tronWeb.request({
-        method: 'tron_requestAccounts'
-      }).catch(error => ({
-        code: error.code,
-        message: error.message
-      }));
-
-      if (code !== 200) {
-        alert(message || "Connection request rejected");
+      const accounts = await window.tronWeb.trx.requestAccounts();
+      if (!accounts?.length) {
+        alert("Connection rejected");
         return;
       }
 
-      if (!window.tronWeb?.ready) {
+      if (!window.tronWeb.ready) {
         alert("Please unlock TronLink first");
         return;
       }
 
-      // Safe network validation
-      const currentChainId = window.tronWeb.fullNode?.chainId?.toString?.();
-      if (!currentChainId) {
-        alert("Could not detect network. Please refresh the page.");
+      if (window.tronWeb.fullNode.host !== TRON_MAINNET_NODE) {
+        alert("Please switch to TRON Mainnet in TronLink");
         return;
       }
 
-      const chainIdNum = currentChainId.startsWith('0x') 
-        ? parseInt(currentChainId, 16)
-        : parseInt(currentChainId, 10);
-
-      console.log(`[TRON] Network ID: ${chainIdNum} (${currentChainId})`);
-
-      if (chainIdNum !== TRON_MAINNET_DECIMAL) {
-        try {
-          await window.tronWeb.request({
-            method: 'wallet_switchNetwork',
-            params: [{ chainId: TRON_MAINNET_HEX }]
-          });
-          console.log('[TRON] Network switch requested, reloading...');
-          window.location.reload();
-          return;
-        } catch (error) {
-          alert("Please switch to TRON Mainnet manually in TronLink");
-          return;
-        }
-      }
-
-      // Safe address validation
-      const tronAddress = window.tronWeb.defaultAddress?.base58;
-      if (!tronAddress || !window.tronWeb.isAddress(tronAddress)) {
-        throw new Error("Invalid TRON address format");
+      const tronAddress = window.tronWeb.defaultAddress.base58;
+      if (!window.tronWeb.isAddress(tronAddress)) {
+        throw new Error("Invalid TRON address");
       }
       setTronAddress(tronAddress);
 
-      // Balance fetching with null checks
       const [trxBal, usdtContract] = await Promise.all([
-        window.tronWeb.trx.getBalance(tronAddress).catch(() => 0),
+        window.tronWeb.trx.getBalance(tronAddress),
         window.tronWeb.contract(ERC20_ABI, TRON_USDT_ADDRESS)
       ]);
 
       setTrxBalance((trxBal / 1e6).toFixed(2));
 
       const [balance, decimals] = await Promise.all([
-        usdtContract.balanceOf(tronAddress).call().catch(() => 0),
-        usdtContract.decimals().call().catch(() => 6)
+        usdtContract.balanceOf(tronAddress).call(),
+        usdtContract.decimals().call()
       ]);
-      
       setTronUsdtBalance((balance / (10 ** decimals)).toFixed(2));
 
     } catch (error) {
-      console.error("[TRON] Error:", error);
       alert(error.message || "TRON connection failed");
     }
   };
 
-  // Auto-update with safe checks
   useEffect(() => {
     const handleTronUpdate = async () => {
-      console.log('[TRON] Auto-update triggered');
-      
-      if (!window.tronWeb?.ready || !window.tronWeb.defaultAddress?.base58) return;
+      if (window.tronWeb?.ready && window.tronWeb.defaultAddress?.base58) {
+        try {
+          if (window.tronWeb.fullNode.host !== TRON_MAINNET_NODE) return;
 
-      try {
-        const currentChainId = window.tronWeb.fullNode?.chainId?.toString?.();
-        if (!currentChainId) return;
+          const address = window.tronWeb.defaultAddress.base58;
+          if (!window.tronWeb.isAddress(address)) return;
 
-        const chainIdNum = currentChainId.startsWith('0x') 
-          ? parseInt(currentChainId, 16)
-          : parseInt(currentChainId, 10);
+          setTronAddress(address);
 
-        if (chainIdNum !== TRON_MAINNET_DECIMAL) return;
+          const [trxBal, usdtContract] = await Promise.all([
+            window.tronWeb.trx.getBalance(address),
+            window.tronWeb.contract(ERC20_ABI, TRON_USDT_ADDRESS)
+          ]);
 
-        const address = window.tronWeb.defaultAddress.base58;
-        if (!window.tronWeb.isAddress(address)) return;
+          setTrxBalance((trxBal / 1e6).toFixed(2));
 
-        // Update balances...
-        
-      } catch (error) {
-        console.log("[TRON] Auto-update error:", error);
+          const [balance, decimals] = await Promise.all([
+            usdtContract.balanceOf(address).call(),
+            usdtContract.decimals().call()
+          ]);
+          setTronUsdtBalance((balance / (10 ** decimals)).toFixed(2));
+        } catch (error) {}
       }
     };
 
     if (window.tronWeb) {
       window.tronWeb.on('addressChanged', handleTronUpdate);
-      window.tronWeb.on('chainChanged', handleTronUpdate);
+      window.tronWeb.on('nodeChanged', handleTronUpdate);
       handleTronUpdate();
     }
 
     return () => {
       if (window.tronWeb) {
         window.tronWeb.off('addressChanged', handleTronUpdate);
-        window.tronWeb.off('chainChanged', handleTronUpdate);
+        window.tronWeb.off('nodeChanged', handleTronUpdate);
       }
     };
   }, []);
