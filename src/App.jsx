@@ -107,40 +107,43 @@ export default function App() {
 
   const connectTronWallet = async () => {
     try {
-      if (!window.tronWeb) {
+      if (!window.tronLink) {
         alert("Please install TronLink wallet from the Chrome Web Store");
         window.open("https://www.tronlink.org/", "_blank");
         return;
       }
 
       // Request account connection
-      const accounts = await window.tronWeb.request({ 
+      const { code, message } = await window.tronLink.request({ 
         method: 'tron_requestAccounts' 
       });
 
-      if (!accounts || accounts.length === 0) {
-        alert("Please approve the connection request in TronLink");
+      if (code !== 200) {
+        alert(message || "Please approve the connection request in TronLink");
         return;
       }
 
-      // Check network
-      if (window.tronWeb.fullNode.host !== "https://api.trongrid.io") {
-        alert("Please switch to TRON Mainnet in TronLink");
-        await window.tronWeb.request({
+      // Verify network
+      const network = await window.tronLink.request({ method: 'tron_network' });
+      if (network.chainId !== '0x2b6653dc') {
+        await window.tronLink.request({
           method: 'wallet_switchNetwork',
-          params: [{ network_id: "0x2b6653dc" }]
+          params: [{ chainId: '0x2b6653dc' }] // TRON Mainnet
         });
-        return;
       }
 
-      const tronAddress = window.tronWeb.defaultAddress.base58;
+      // Get address from tronWeb
+      const tronAddress = window.tronLink.tronWeb.defaultAddress.base58;
       setTronAddress(tronAddress);
 
-      // Get balances
-      const trxBal = await window.tronWeb.trx.getBalance(tronAddress);
+      // Fetch balances
+      const trxBal = await window.tronLink.tronWeb.trx.getBalance(tronAddress);
       setTrxBalance((trxBal / 1e6).toFixed(2));
 
-      const usdtContract = await window.tronWeb.contract(ERC20_ABI, TRON_USDT_ADDRESS);
+      const usdtContract = await window.tronLink.tronWeb.contract(
+        ERC20_ABI,
+        TRON_USDT_ADDRESS
+      );
       const usdtBal = await usdtContract.balanceOf(tronAddress).call();
       setTronUsdtBalance((usdtBal / 1e6).toFixed(2));
 
@@ -151,24 +154,41 @@ export default function App() {
   };
 
   useEffect(() => {
-    const handleTronConnection = async () => {
-      if (window.tronWeb?.defaultAddress?.base58) {
+    const handleTronUpdate = async () => {
+      if (window.tronLink?.tronWeb?.defaultAddress?.base58) {
         try {
-          await connectTronWallet();
+          const tronAddress = window.tronLink.tronWeb.defaultAddress.base58;
+          setTronAddress(tronAddress);
+
+          // Update balances
+          const trxBal = await window.tronLink.tronWeb.trx.getBalance(tronAddress);
+          setTrxBalance((trxBal / 1e6).toFixed(2));
+
+          const usdtContract = await window.tronLink.tronWeb.contract(
+            ERC20_ABI,
+            TRON_USDT_ADDRESS
+          );
+          const usdtBal = await usdtContract.balanceOf(tronAddress).call();
+          setTronUsdtBalance((usdtBal / 1e6).toFixed(2));
         } catch (error) {
-          console.log("Auto-connect failed:", error);
+          console.log("Balance update failed:", error);
         }
       }
     };
 
-    if (window.tronWeb) {
-      window.tronWeb.on('addressChanged', handleTronConnection);
-      handleTronConnection();
+    if (window.tronLink) {
+      // Set up event listeners
+      window.tronLink.on('addressChanged', handleTronUpdate);
+      window.tronLink.on('networkChanged', handleTronUpdate);
+      
+      // Initial connection check
+      handleTronUpdate();
     }
 
     return () => {
-      if (window.tronWeb) {
-        window.tronWeb.off('addressChanged', handleTronConnection);
+      if (window.tronLink) {
+        window.tronLink.off('addressChanged', handleTronUpdate);
+        window.tronLink.off('networkChanged', handleTronUpdate);
       }
     };
   }, []);
