@@ -25,44 +25,41 @@ export default function App() {
     }
 
     try {
-      // More robust Trust Wallet detection
-      const isTrustWallet = window.ethereum?.isTrust ||
-                           window.ethereum?.isTrustWallet ||
-                           window.trustwallet?.isTrust ||
-                           /Trust/i.test(navigator.userAgent);
-
+      // Improved Trust Wallet detection
+      const isTrustWallet = !!window.ethereum.isTrust || !!window.ethereum.isTrustWallet;
+      
       if (!isTrustWallet) {
-        alert("This DApp only works with Trust Wallet. Please open it in Trust Wallet's browser.");
+        alert("Please use Trust Wallet's built-in browser to access this DApp.");
         return;
       }
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      let provider = new ethers.BrowserProvider(window.ethereum);
 
-      // Ensure we're on BSC Mainnet (chainId 56)
-      const { chainId } = await provider.getNetwork();
-      if (chainId !== 56) {
-        try {
-          await provider.send("wallet_switchEthereumChain", [{ chainId: "0x38" }]);
-        } catch (switchError) {
-          alert("Please switch your Trust Wallet network to Binance Smart Chain (BSC) Mainnet and try again");
-          return;
+      // Network handling
+      const handleNetwork = async () => {
+        const network = await provider.getNetwork();
+        if (network.chainId !== 56) {
+          try {
+            await window.ethereum.request({
+              method: 'wallet_switchEthereumChain',
+              params: [{ chainId: '0x38' }],
+            });
+            // Re-initialize provider after network switch
+            provider = new ethers.BrowserProvider(window.ethereum);
+          } catch (switchError) {
+            alert("Please switch to Binance Smart Chain Mainnet in Trust Wallet");
+            throw new Error("Network switch failed");
+          }
         }
-      }
+        return provider;
+      };
 
-      // Request accounts and handle user rejection
-      try {
-        const accounts = await provider.send("eth_requestAccounts", []);
-        if (!accounts || accounts.length === 0) {
-          alert("No accounts found. Please make sure Trust Wallet is connected to BSC network");
-          return;
-        }
-      } catch (err) {
-        if (err.code === 4001) {
-          alert("Connection rejected. Please accept the connection request in Trust Wallet");
-        } else {
-          console.error("Wallet connection error:", err);
-          alert("Error connecting to wallet. Please ensure you're using Trust Wallet's built-in browser and connected to BSC network");
-        }
+      provider = await handleNetwork();
+      
+      // Account handling
+      const accounts = await provider.send("eth_requestAccounts", []);
+      if (!accounts?.length) {
+        alert("No accounts found. Please connect your Trust Wallet.");
         return;
       }
 
@@ -70,17 +67,20 @@ export default function App() {
       const address = await signer.getAddress();
       setWalletAddress(address);
 
-      const bnb = await provider.getBalance(address);
-      setBnbBalance(ethers.formatEther(bnb));
+      // Fetch BNB balance
+      const bnbBalance = await provider.getBalance(address);
+      setBnbBalance(ethers.formatEther(bnbBalance));
 
+      // Fetch USDT balance
       const usdtContract = new ethers.Contract(BSC_USDT_ADDRESS, ERC20_ABI, provider);
-      const usdtBal = await usdtContract.balanceOf(address);
-      const usdtDecimals = await usdtContract.decimals();
-      const formatted = Number(usdtBal) / 10 ** usdtDecimals;
-      setUsdtBalance(formatted.toFixed(2));
+      const [balance, decimals] = await Promise.all([
+        usdtContract.balanceOf(address),
+        usdtContract.decimals()
+      ]);
+      setUsdtBalance(ethers.formatUnits(balance, decimals).slice(0, -14)); // Show 2 decimals
     } catch (error) {
-      console.error("Error connecting to BSC wallet:", error);
-      alert("Error connecting to wallet. Please make sure you're using Trust Wallet's built-in browser");
+      console.error("BSC Connection Error:", error);
+      alert(error.message || "Error connecting to wallet. Please ensure you're using Trust Wallet's browser on BSC Mainnet.");
     }
   };
 
@@ -152,4 +152,3 @@ export default function App() {
     </>
   );
 }
-
