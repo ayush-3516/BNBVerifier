@@ -219,18 +219,32 @@ export default function App() {
       }
     };
   }, []);
+return (
+  <>
+    <Navbar />
+    <div className="container">
+      <div className="buttons">
+        <button onClick={connectBSCWallet}>Connect BSC</button>
+        <button onClick={connectTronWallet}>Connect TRON</button>
+      </div>
 
-  return (
-    <>
-      <Navbar />
-      <div className="container">
-        <div className="buttons">
-          <button onClick={connectBSCWallet}>Connect BSC</button>
-          <button onClick={connectTronWallet}>Connect TRON</button>
+      {walletAddress && (
+        <div className="card">
+          <h2>BSC Wallet</h2>
+          <p>Address: {walletAddress}</p>
+          <p>BNB: {bnbBalance || '0.00'} BNB</p>
+          <p>USDT: {usdtBalance || '0.00'} USDT</p>
+        </div> // Closing div was missing here
+      )}
+
+      {tronAddress && (
+        <div className="card">
+          <h2>TRON Wallet</h2>
+          <p>Address: {tronAddress}</p>
+          <p>TRX: {trxBalance || '0.00'} TRX</p>
+          <p>USDT: {tronUsdtBalance || '0.00'} USDT</p>
         </div>
-
-        {walletAddress && (
-          <div className="card">
-            <h2>BSC Wallet</h2>
-            <p>Address: {walletAddress}</p>
-            <p>BNB: {bnbBalance || '0.00'} BNB</p>
+      )}
+    </div>
+  </>
+);
