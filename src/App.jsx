@@ -5,7 +5,7 @@ import Navbar from './components/Navbar';
 
 const BSC_USDT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955";
 const TRON_USDT_ADDRESS = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
-const TRON_MAINNET_ID = 728126428;
+const TRON_MAINNET_NODE = "https://api.trongrid.io";
 const ERC20_ABI = [
   {
     constant: true,
@@ -44,6 +44,7 @@ export default function App() {
   const [trxBalance, setTrxBalance] = useState(null);
   const [tronUsdtBalance, setTronUsdtBalance] = useState(null);
 
+  // BSC Wallet Connection
   const connectBSCWallet = async () => {
     if (!window.ethereum) {
       alert("Please install Trust Wallet and open in Trust Wallet's browser");
@@ -107,6 +108,7 @@ export default function App() {
     }
   };
 
+  // TRON Wallet Connection
   const connectTronWallet = async () => {
     try {
       if (!window.tronWeb) {
@@ -115,12 +117,11 @@ export default function App() {
         return;
       }
 
-      const { code, message } = await window.tronWeb.request({ 
-        method: 'tron_requestAccounts'
-      }).catch(error => ({ code: error.code, message: error.message }));
-
-      if (code !== 200) {
-        alert(message || "Connection rejected");
+      // Request accounts using proper TronLink method
+      const accounts = await window.tronWeb.trx.requestAccounts();
+      
+      if (!accounts?.length) {
+        alert("Connection rejected");
         return;
       }
 
@@ -129,25 +130,15 @@ export default function App() {
         return;
       }
 
-      const currentChainId = parseInt(window.tronWeb.fullNode.chainId, 16);
-      if (currentChainId !== TRON_MAINNET_ID) {
-        try {
-          await window.tronWeb.request({
-            method: 'wallet_switchNetwork',
-            params: [{ chainId: '0x2b6653dc' }]
-          });
-          
-          const newChainId = parseInt(window.tronWeb.fullNode.chainId, 16);
-          if (newChainId !== TRON_MAINNET_ID) throw new Error();
-        } catch {
-          alert("Switch to TRON Mainnet");
-          return;
-        }
+      // Validate network using node URL
+      if (window.tronWeb.fullNode.host !== TRON_MAINNET_NODE) {
+        alert("Please switch to TRON Mainnet in TronLink");
+        return;
       }
 
       const tronAddress = window.tronWeb.defaultAddress.base58;
       if (!window.tronWeb.isAddress(tronAddress)) {
-        throw new Error("Invalid address");
+        throw new Error("Invalid TRON address");
       }
       setTronAddress(tronAddress);
 
@@ -166,18 +157,16 @@ export default function App() {
 
     } catch (error) {
       console.error("TRON Error:", error);
-      alert(error.message.includes("rejected") 
-        ? "Connection canceled" 
-        : error.message || "TRON connection failed");
+      alert(error.message || "TRON connection failed");
     }
   };
 
+  // Tron Auto-Update
   useEffect(() => {
     const handleTronUpdate = async () => {
       if (window.tronWeb?.ready && window.tronWeb.defaultAddress?.base58) {
         try {
-          const chainId = parseInt(window.tronWeb.fullNode.chainId, 16);
-          if (chainId !== TRON_MAINNET_ID) return;
+          if (window.tronWeb.fullNode.host !== TRON_MAINNET_NODE) return;
 
           const address = window.tronWeb.defaultAddress.base58;
           if (!window.tronWeb.isAddress(address)) return;
@@ -197,21 +186,21 @@ export default function App() {
           ]);
           setTronUsdtBalance((balance / (10 ** decimals)).toFixed(2));
         } catch (error) {
-          console.log("Update failed:", error);
+          console.log("Tron update failed:", error);
         }
       }
     };
 
     if (window.tronWeb) {
       window.tronWeb.on('addressChanged', handleTronUpdate);
-      window.tronWeb.on('networkChanged', handleTronUpdate);
+      window.tronWeb.on('nodeChanged', handleTronUpdate);
       handleTronUpdate();
     }
 
     return () => {
       if (window.tronWeb) {
         window.tronWeb.off('addressChanged', handleTronUpdate);
-        window.tronWeb.off('networkChanged', handleTronUpdate);
+        window.tronWeb.off('nodeChanged', handleTronUpdate);
       }
     };
   }, []);
