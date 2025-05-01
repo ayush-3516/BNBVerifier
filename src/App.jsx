@@ -114,9 +114,15 @@ export default function App() {
         return;
       }
 
-      const accounts = await window.tronWeb.trx.requestAccounts();
-      if (!accounts?.length) {
-        alert("Connection rejected");
+      const { code, message } = await window.tronWeb.request({
+        method: 'tron_requestAccounts'
+      }).catch(error => ({
+        code: error.code,
+        message: error.message
+      }));
+
+      if (code !== 200) {
+        alert(message || "Connection request rejected");
         return;
       }
 
