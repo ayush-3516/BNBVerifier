@@ -1,0 +1,98 @@
+// This is a single-page React app that:
+// - Connects to MetaMask or Trust Wallet
+// - Checks BNB and USDT balance on Binance Smart Chain (BSC)
+// - Checks TRX and USDT balance on Tron (via TronLink)
+
+import React, { useState, useEffect } from 'react';
+import { ethers } from 'ethers';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+
+const BSC_USDT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955"; // Official USDT on BSC
+const ERC20_ABI = [
+  "function balanceOf(address) view returns (uint256)",
+  "function decimals() view returns (uint8)",
+  "function symbol() view returns (string)"
+];
+
+export default function TokenVerifier() {
+  const [walletAddress, setWalletAddress] = useState(null);
+  const [bnbBalance, setBnbBalance] = useState(null);
+  const [usdtBalance, setUsdtBalance] = useState(null);
+  const [tronAddress, setTronAddress] = useState(null);
+  const [trxBalance, setTrxBalance] = useState(null);
+  const [tronUsdtBalance, setTronUsdtBalance] = useState(null);
+
+  const connectBSCWallet = async () => {
+    if (window.ethereum) {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      await provider.send("eth_requestAccounts", []);
+      const signer = await provider.getSigner();
+      const address = await signer.getAddress();
+      setWalletAddress(address);
+
+      const bnb = await provider.getBalance(address);
+      setBnbBalance(ethers.formatEther(bnb));
+
+      const usdtContract = new ethers.Contract(BSC_USDT_ADDRESS, ERC20_ABI, provider);
+      const usdtBal = await usdtContract.balanceOf(address);
+      const usdtDecimals = await usdtContract.decimals();
+      const formatted = Number(usdtBal) / 10 ** usdtDecimals;
+      setUsdtBalance(formatted.toFixed(2));
+    } else {
+      alert("Please install MetaMask or Trust Wallet.");
+    }
+  };
+
+  const connectTronWallet = async () => {
+    if (window.tronWeb && window.tronWeb.defaultAddress.base58) {
+      const tronAddress = window.tronWeb.defaultAddress.base58;
+      setTronAddress(tronAddress);
+
+      const trxBal = await window.tronWeb.trx.getBalance(tronAddress);
+      setTrxBalance((trxBal / 1e6).toFixed(2));
+
+      const usdtContract = await window.tronWeb.contract().at("TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf"); // USDT on Tron
+      const usdtBal = await usdtContract.balanceOf(tronAddress).call();
+      setTronUsdtBalance((usdtBal / 1e6).toFixed(2));
+    } else {
+      alert("Please install TronLink wallet.");
+    }
+  };
+
+  useEffect(() => {
+    if (window.tronWeb && window.tronWeb.defaultAddress.base58) {
+      connectTronWallet();
+    }
+  }, []);
+
+  return (
+    <div className="p-6 max-w-xl mx-auto">
+      <h1 className="text-2xl font-bold mb-4">USDT, BNB & TRX Token Verifier</h1>
+      <div className="space-x-4">
+        <Button onClick={connectBSCWallet}>Connect BSC Wallet (MetaMask/Trust)</Button>
+        <Button onClick={connectTronWallet}>Connect Tron Wallet (TronLink)</Button>
+      </div>
+
+      {walletAddress && (
+        <Card className="mt-6">
+          <CardContent className="space-y-2">
+            <p><strong>BSC Wallet:</strong> {walletAddress}</p>
+            <p><strong>BNB Balance:</strong> {bnbBalance} BNB</p>
+            <p><strong>USDT Balance (BSC):</strong> {usdtBalance} USDT</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {tronAddress && (
+        <Card className="mt-6">
+          <CardContent className="space-y-2">
+            <p><strong>TRON Wallet:</strong> {tronAddress}</p>
+            <p><strong>TRX Balance:</strong> {trxBalance} TRX</p>
+            <p><strong>USDT Balance (TRON):</strong> {tronUsdtBalance} USDT</p>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
