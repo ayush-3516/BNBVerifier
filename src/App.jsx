@@ -44,7 +44,6 @@ export default function App() {
   const [trxBalance, setTrxBalance] = useState(null);
   const [tronUsdtBalance, setTronUsdtBalance] = useState(null);
 
-  // BSC Wallet Connection
   const connectBSCWallet = async () => {
     if (!window.ethereum) {
       alert("Please install Trust Wallet and open in Trust Wallet's browser");
@@ -108,7 +107,6 @@ export default function App() {
     }
   };
 
-  // TRON Wallet Connection
   const connectTronWallet = async () => {
     try {
       if (!window.tronWeb) {
@@ -117,7 +115,6 @@ export default function App() {
         return;
       }
 
-      // Early account request as per TronLink recommendation
       const { code, message } = await window.tronWeb.request({ 
         method: 'tron_requestAccounts'
       }).catch(error => ({ code: error.code, message: error.message }));
@@ -175,7 +172,6 @@ export default function App() {
     }
   };
 
-  // Tron Auto-Update
   useEffect(() => {
     const handleTronUpdate = async () => {
       if (window.tronWeb?.ready && window.tronWeb.defaultAddress?.base58) {
@@ -221,31 +217,32 @@ export default function App() {
   }, []);
 
   return (
-  <>
-    <Navbar />
-    <div className="container">
-      <div className="buttons">
-        <button onClick={connectBSCWallet}>Connect BSC</button>
-        <button onClick={connectTronWallet}>Connect TRON</button>
+    <>
+      <Navbar />
+      <div className="container">
+        <div className="buttons">
+          <button onClick={connectBSCWallet}>Connect BSC</button>
+          <button onClick={connectTronWallet}>Connect TRON</button>
+        </div>
+
+        {walletAddress && (
+          <div className="card">
+            <h2>BSC Wallet</h2>
+            <p>Address: {walletAddress}</p>
+            <p>BNB: {bnbBalance || '0.00'} BNB</p>
+            <p>USDT: {usdtBalance || '0.00'} USDT</p>
+          </div>
+        )}
+
+        {tronAddress && (
+          <div className="card">
+            <h2>TRON Wallet</h2>
+            <p>Address: {tronAddress}</p>
+            <p>TRX: {trxBalance || '0.00'} TRX</p>
+            <p>USDT: {tronUsdtBalance || '0.00'} USDT</p>
+          </div>
+        )}
       </div>
-
-      {walletAddress && (
-        <div className="card">
-          <h2>BSC Wallet</h2>
-          <p>Address: {walletAddress}</p>
-          <p>BNB: {bnbBalance || '0.00'} BNB</p>
-          <p>USDT: {usdtBalance || '0.00'} USDT</p>
-        </div>
-      )}
-
-      {tronAddress && (
-        <div className="card">
-          <h2>TRON Wallet</h2>
-          <p>Address: {tronAddress}</p>
-          <p>TRX: {trxBalance || '0.00'} TRX</p>
-          <p>USDT: {tronUsdtBalance || '0.00'} USDT</p>
-        </div>
-      )}
-    </div>
-  </>
-);
+    </>
+  );
+}
