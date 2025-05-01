@@ -114,7 +114,7 @@ export default function App() {
         return;
       }
 
-      const { code, message } = await window.tronWeb.request({
+      const { code, message } = await window.tronLink.request({
         method: 'tron_requestAccounts'
       }).catch(error => ({
         code: error.code,
