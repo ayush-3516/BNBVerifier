@@ -219,7 +219,8 @@ export default function App() {
       }
     };
   }, []);
-return (
+
+  return (
   <>
     <Navbar />
     <div className="container">
@@ -234,7 +235,7 @@ return (
           <p>Address: {walletAddress}</p>
           <p>BNB: {bnbBalance || '0.00'} BNB</p>
           <p>USDT: {usdtBalance || '0.00'} USDT</p>
-        </div> // Closing div was missing here
+        </div>
       )}
 
       {tronAddress && (
