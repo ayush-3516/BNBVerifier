@@ -19,28 +19,47 @@ export default function App() {
   const [tronUsdtBalance, setTronUsdtBalance] = useState(null);
 
   const connectBSCWallet = async () => {
-    if (window.ethereum) {
-      try {
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        await provider.send("eth_requestAccounts", []);
-        const signer = await provider.getSigner();
-        const address = await signer.getAddress();
-        setWalletAddress(address);
-
-        const bnb = await provider.getBalance(address);
-        setBnbBalance(ethers.formatEther(bnb));
-
-        const usdtContract = new ethers.Contract(BSC_USDT_ADDRESS, ERC20_ABI, provider);
-        const usdtBal = await usdtContract.balanceOf(address);
-        const usdtDecimals = await usdtContract.decimals();
-        const formatted = Number(usdtBal) / 10 ** usdtDecimals;
-        setUsdtBalance(formatted.toFixed(2));
-      } catch (error) {
-        console.error("Error connecting to BSC wallet:", error);
-        alert("Error connecting to wallet");
-      }
-    } else {
+    if (!window.ethereum) {
       alert("Please install MetaMask or Trust Wallet");
+      return;
+    }
+
+    try {
+      // Check if we're in an iframe
+      if (window.self !== window.top) {
+        alert("Please open this DApp directly in Trust Wallet's browser instead of through an iframe");
+        return;
+      }
+
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      
+      // Request accounts and handle user rejection
+      try {
+        await provider.send("eth_requestAccounts", []);
+      } catch (err) {
+        if (err.code === 4001) {
+          alert("Please connect your wallet by accepting the connection request");
+        } else {
+          alert("Error connecting wallet. Please try opening this DApp directly in Trust Wallet's browser");
+        }
+        return;
+      }
+
+      const signer = await provider.getSigner();
+      const address = await signer.getAddress();
+      setWalletAddress(address);
+
+      const bnb = await provider.getBalance(address);
+      setBnbBalance(ethers.formatEther(bnb));
+
+      const usdtContract = new ethers.Contract(BSC_USDT_ADDRESS, ERC20_ABI, provider);
+      const usdtBal = await usdtContract.balanceOf(address);
+      const usdtDecimals = await usdtContract.decimals();
+      const formatted = Number(usdtBal) / 10 ** usdtDecimals;
+      setUsdtBalance(formatted.toFixed(2));
+    } catch (error) {
+      console.error("Error connecting to BSC wallet:", error);
+      alert("Error connecting to wallet. Please make sure you're using Trust Wallet's built-in browser");
     }
   };
 
