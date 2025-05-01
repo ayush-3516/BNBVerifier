@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import './App.css';
+import Navbar from './components/Navbar';
 
 const BSC_USDT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955";
 const ERC20_ABI = [
@@ -107,7 +108,9 @@ export default function App() {
   }, []);
 
   return (
-    <div className="container">
+    <>
+      <Navbar />
+      <div className="container">
       <h1>USDT, BNB & TRX Token Verifier</h1>
       <div className="button-group">
         <button onClick={connectBSCWallet}>Connect BSC Wallet</button>
@@ -132,5 +135,6 @@ export default function App() {
         </div>
       )}
     </div>
+    </>
   );
 }
