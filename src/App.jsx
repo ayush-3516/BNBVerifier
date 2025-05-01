@@ -106,44 +106,71 @@ export default function App() {
   };
 
   const connectTronWallet = async () => {
-    if (typeof window.tronWeb === 'undefined') {
-      alert("Please install TronLink wallet from the Chrome Web Store");
-      return;
-    }
-
-    if (!window.tronWeb.ready) {
-      alert("Please unlock your TronLink wallet and connect to the Tron network");
-      return;
-    }
-
     try {
-      const tronAddress = window.tronWeb.defaultAddress.base58;
-      if (!tronAddress) {
-        alert("Please connect your TronLink wallet");
+      if (!window.tronWeb) {
+        alert("Please install TronLink wallet from the Chrome Web Store");
+        window.open("https://www.tronlink.org/", "_blank");
         return;
       }
 
+      // Request account connection
+      const accounts = await window.tronWeb.request({ 
+        method: 'tron_requestAccounts' 
+      });
+
+      if (!accounts || accounts.length === 0) {
+        alert("Please approve the connection request in TronLink");
+        return;
+      }
+
+      // Check network
+      if (window.tronWeb.fullNode.host !== "https://api.trongrid.io") {
+        alert("Please switch to TRON Mainnet in TronLink");
+        await window.tronWeb.request({
+          method: 'wallet_switchNetwork',
+          params: [{ network_id: "0x2b6653dc" }]
+        });
+        return;
+      }
+
+      const tronAddress = window.tronWeb.defaultAddress.base58;
       setTronAddress(tronAddress);
 
+      // Get balances
       const trxBal = await window.tronWeb.trx.getBalance(tronAddress);
       setTrxBalance((trxBal / 1e6).toFixed(2));
 
-      const usdtContract = await window.tronWeb.contract(
-        ERC20_ABI,
-        TRON_USDT_ADDRESS
-      );
+      const usdtContract = await window.tronWeb.contract(ERC20_ABI, TRON_USDT_ADDRESS);
       const usdtBal = await usdtContract.balanceOf(tronAddress).call();
       setTronUsdtBalance((usdtBal / 1e6).toFixed(2));
+
     } catch (error) {
-      console.error("Error connecting to Tron wallet:", error);
-      alert("Error connecting to TronLink. Please make sure you have approved the connection.");
+      console.error("Tron connection error:", error);
+      alert(`Connection failed: ${error.message || "Check TronLink and try again"}`);
     }
   };
 
   useEffect(() => {
-    if (window.tronWeb && window.tronWeb.defaultAddress.base58) {
-      connectTronWallet();
+    const handleTronConnection = async () => {
+      if (window.tronWeb?.defaultAddress?.base58) {
+        try {
+          await connectTronWallet();
+        } catch (error) {
+          console.log("Auto-connect failed:", error);
+        }
+      }
+    };
+
+    if (window.tronWeb) {
+      window.tronWeb.on('addressChanged', handleTronConnection);
+      handleTronConnection();
     }
+
+    return () => {
+      if (window.tronWeb) {
+        window.tronWeb.off('addressChanged', handleTronConnection);
+      }
+    };
   }, []);
 
   return (
