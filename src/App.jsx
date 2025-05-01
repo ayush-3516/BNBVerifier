@@ -109,7 +109,7 @@ export default function App() {
     try {
       if (!window.tronWeb || !window.tronWeb.ready) {
         alert("Please install and unlock TronLink wallet");
-        window.open("https://www.tronlink.org/", "_blank");
+        // window.open("https://www.tronlink.org/", "_blank");
         return;
       }
 
