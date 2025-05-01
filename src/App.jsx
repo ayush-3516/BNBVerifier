@@ -45,23 +45,37 @@ export default function App() {
   };
 
   const connectTronWallet = async () => {
-    if (window.tronWeb && window.tronWeb.defaultAddress.base58) {
-      try {
-        const tronAddress = window.tronWeb.defaultAddress.base58;
-        setTronAddress(tronAddress);
+    if (typeof window.tronWeb === 'undefined') {
+      alert("Please install TronLink wallet from the Chrome Web Store");
+      return;
+    }
 
-        const trxBal = await window.tronWeb.trx.getBalance(tronAddress);
-        setTrxBalance((trxBal / 1e6).toFixed(2));
+    if (!window.tronWeb.ready) {
+      alert("Please unlock your TronLink wallet and connect to the Tron network");
+      return;
+    }
 
-        const usdtContract = await window.tronWeb.contract().at("TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf");
-        const usdtBal = await usdtContract.balanceOf(tronAddress).call();
-        setTronUsdtBalance((usdtBal / 1e6).toFixed(2));
-      } catch (error) {
-        console.error("Error connecting to Tron wallet:", error);
-        alert("Error connecting to TronLink");
+    try {
+      // Request account access
+      const tronAddress = window.tronWeb.defaultAddress.base58;
+      if (!tronAddress) {
+        alert("Please connect your TronLink wallet");
+        return;
       }
-    } else {
-      alert("Please install TronLink wallet");
+
+      setTronAddress(tronAddress);
+
+      // Get TRX balance
+      const trxBal = await window.tronWeb.trx.getBalance(tronAddress);
+      setTrxBalance((trxBal / 1e6).toFixed(2));
+
+      // Get USDT balance
+      const usdtContract = await window.tronWeb.contract().at("TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"); // Mainnet USDT
+      const usdtBal = await usdtContract.balanceOf(tronAddress).call();
+      setTronUsdtBalance((usdtBal / 1e6).toFixed(2));
+    } catch (error) {
+      console.error("Error connecting to Tron wallet:", error);
+      alert("Error connecting to TronLink. Please make sure you have approved the connection.");
     }
   };
 
