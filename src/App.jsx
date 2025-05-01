@@ -21,16 +21,19 @@ export default function App() {
 
   const connectBSCWallet = async () => {
     if (!window.ethereum) {
-      alert("Please install MetaMask or Trust Wallet");
+      alert("Please install Trust Wallet and open this DApp in Trust Wallet's browser");
       return;
     }
 
     try {
-      // Check if we're using Trust Wallet's browser
-      const isTrustWallet = window.ethereum?.isTrust || false;
+      // More robust Trust Wallet detection
+      const isTrustWallet = window.ethereum?.isTrust || 
+                           window.ethereum?.isTrustWallet || 
+                           window.trustwallet?.isTrust ||
+                           /Trust/i.test(navigator.userAgent);
       
       if (!isTrustWallet) {
-        alert("Please open this DApp directly in Trust Wallet's browser");
+        alert("This DApp only works with Trust Wallet. Please open it in Trust Wallet's browser.");
         return;
       }
 
@@ -38,12 +41,17 @@ export default function App() {
       
       // Request accounts and handle user rejection
       try {
-        await provider.send("eth_requestAccounts", []);
+        const accounts = await provider.send("eth_requestAccounts", []);
+        if (!accounts || accounts.length === 0) {
+          alert("No accounts found. Please make sure Trust Wallet is connected to BSC network");
+          return;
+        }
       } catch (err) {
         if (err.code === 4001) {
-          alert("Please connect your wallet by accepting the connection request");
+          alert("Connection rejected. Please accept the connection request in Trust Wallet");
         } else {
-          alert("Error connecting wallet. Please try opening this DApp directly in Trust Wallet's browser");
+          console.error("Wallet connection error:", err);
+          alert("Please ensure you are using Trust Wallet's built-in browser and connected to BSC network");
         }
         return;
       }
