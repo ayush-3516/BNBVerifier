@@ -1,14 +1,29 @@
 import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
+import SunWeb from '@tronprotocol/sun-network-sdk';
 import './App.css';
 import Navbar from './components/Navbar';
 
+// BSC Configuration
 const BSC_USDT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955";
 const ERC20_ABI = [
   "function balanceOf(address) view returns (uint256)",
   "function decimals() view returns (uint8)",
   "function symbol() view returns (string)"
 ];
+
+// Tron Sidechain Configuration
+const SUNWEB_CONFIG = {
+  fullHost: 'https://api.shasta.trongrid.io', // Replace with your sidechain node URL
+  sideOptions: {
+    fullNode: 'https://api.shasta.trongrid.io', // Sidechain full node
+    solidityNode: 'https://api.shasta.trongrid.io', // Sidechain solidity node
+    eventServer: 'https://api.shasta.trongrid.io' // Sidechain event server
+  }
+};
+const SIDE_CHAIN_USDT_ADDRESS = "TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs"; // Replace with actual sidechain USDT address
+
+const sunWeb = new SunWeb(SUNWEB_CONFIG);
 
 export default function App() {
   const [walletAddress, setWalletAddress] = useState(null);
@@ -18,6 +33,7 @@ export default function App() {
   const [trxBalance, setTrxBalance] = useState(null);
   const [tronUsdtBalance, setTronUsdtBalance] = useState(null);
 
+  // BSC Wallet Connection (Unchanged)
   const connectBSCWallet = async () => {
     if (!window.ethereum) {
       alert("Please install Trust Wallet and open this DApp in Trust Wallet's browser");
@@ -33,7 +49,6 @@ export default function App() {
 
       let provider = new ethers.BrowserProvider(window.ethereum);
 
-      // Network handling
       const handleNetwork = async () => {
         const network = await provider.getNetwork();
         if (network.chainId !== 56) {
@@ -53,7 +68,6 @@ export default function App() {
 
       provider = await handleNetwork();
       
-      // Account handling
       const accounts = await provider.send("eth_requestAccounts", []);
       if (!accounts?.length) {
         alert("No accounts found. Please connect your Trust Wallet.");
@@ -64,18 +78,15 @@ export default function App() {
       const address = await signer.getAddress();
       setWalletAddress(address);
 
-      // Fetch BNB balance
       const bnbBalance = await provider.getBalance(address);
       setBnbBalance(ethers.formatEther(bnbBalance));
 
-      // Fetch USDT balance
       const usdtContract = new ethers.Contract(BSC_USDT_ADDRESS, ERC20_ABI, provider);
       const [balance, decimals] = await Promise.all([
         usdtContract.balanceOf(address),
         usdtContract.decimals()
       ]);
       
-      // Proper balance formatting
       const formattedBalance = ethers.formatUnits(balance, decimals);
       const displayBalance = parseFloat(formattedBalance).toFixed(2);
       setUsdtBalance(displayBalance);
@@ -85,36 +96,40 @@ export default function App() {
     }
   };
 
-  // Tron Wallet connection remains unchanged
+  // Updated Tron Sidechain Connection
   const connectTronWallet = async () => {
-    if (typeof window.tronWeb === 'undefined') {
-      alert("Please install TronLink wallet from the Chrome Web Store");
+    if (!window.tronWeb) {
+      alert("Please install TronLink wallet");
       return;
     }
 
     if (!window.tronWeb.ready) {
-      alert("Please unlock your TronLink wallet and connect to the Tron network");
+      alert("Please unlock your TronLink wallet");
       return;
     }
 
     try {
-      const tronAddress = window.tronWeb.defaultAddress.base58;
-      if (!tronAddress) {
+      // Get mainchain address
+      const mainchainAddress = window.tronWeb.defaultAddress.base58;
+      if (!mainchainAddress) {
         alert("Please connect your TronLink wallet");
         return;
       }
 
-      setTronAddress(tronAddress);
+      // Get sidechain address
+      const sidechainAddress = await sunWeb.sidechain.getSidechainAddress(mainchainAddress);
+      setTronAddress(sidechainAddress);
 
-      const trxBal = await window.tronWeb.trx.getBalance(tronAddress);
+      // Get sidechain balances
+      const trxBal = await sunWeb.sidechain.trx.getBalance(sidechainAddress);
       setTrxBalance((trxBal / 1e6).toFixed(2));
 
-      const usdtContract = await window.tronWeb.contract().at("TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t");
-      const usdtBal = await usdtContract.balanceOf(tronAddress).call();
+      const usdtContract = await sunWeb.sidechain.contract().at(SIDE_CHAIN_USDT_ADDRESS);
+      const usdtBal = await usdtContract.balanceOf(sidechainAddress).call();
       setTronUsdtBalance((usdtBal / 1e6).toFixed(2));
     } catch (error) {
-      console.error("Error connecting to Tron wallet:", error);
-      alert("Error connecting to TronLink. Please make sure you have approved the connection.");
+      console.error("Tron Sidechain Error:", error);
+      alert("Error connecting to Tron sidechain. Please ensure:\n1. TronLink is connected\n2. You're on the correct network\n3. Sidechain nodes are accessible");
     }
   };
 
@@ -144,7 +159,7 @@ export default function App() {
 
         {tronAddress && (
           <div className="card">
-            <h2>TRON Wallet</h2>
+            <h2>TRON Sidechain Wallet</h2>
             <p>Address: {tronAddress}</p>
             <p>TRX Balance: {trxBalance} TRX</p>
             <p>USDT Balance: {tronUsdtBalance} USDT</p>
