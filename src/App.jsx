@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import './App.css';
@@ -27,18 +26,29 @@ export default function App() {
 
     try {
       // More robust Trust Wallet detection
-      const isTrustWallet = window.ethereum?.isTrust || 
-                           window.ethereum?.isTrustWallet || 
+      const isTrustWallet = window.ethereum?.isTrust ||
+                           window.ethereum?.isTrustWallet ||
                            window.trustwallet?.isTrust ||
                            /Trust/i.test(navigator.userAgent);
-      
+
       if (!isTrustWallet) {
         alert("This DApp only works with Trust Wallet. Please open it in Trust Wallet's browser.");
         return;
       }
 
       const provider = new ethers.BrowserProvider(window.ethereum);
-      
+
+      // Ensure we're on BSC Mainnet (chainId 56)
+      const { chainId } = await provider.getNetwork();
+      if (chainId !== 56) {
+        try {
+          await provider.send("wallet_switchEthereumChain", [{ chainId: "0x38" }]);
+        } catch (switchError) {
+          alert("Please switch your Trust Wallet network to Binance Smart Chain (BSC) Mainnet and try again");
+          return;
+        }
+      }
+
       // Request accounts and handle user rejection
       try {
         const accounts = await provider.send("eth_requestAccounts", []);
@@ -51,7 +61,7 @@ export default function App() {
           alert("Connection rejected. Please accept the connection request in Trust Wallet");
         } else {
           console.error("Wallet connection error:", err);
-          alert("Please ensure you are using Trust Wallet's built-in browser and connected to BSC network");
+          alert("Error connecting to wallet. Please ensure you're using Trust Wallet's built-in browser and connected to BSC network");
         }
         return;
       }
@@ -86,7 +96,6 @@ export default function App() {
     }
 
     try {
-      // Request account access
       const tronAddress = window.tronWeb.defaultAddress.base58;
       if (!tronAddress) {
         alert("Please connect your TronLink wallet");
@@ -95,12 +104,10 @@ export default function App() {
 
       setTronAddress(tronAddress);
 
-      // Get TRX balance
       const trxBal = await window.tronWeb.trx.getBalance(tronAddress);
       setTrxBalance((trxBal / 1e6).toFixed(2));
 
-      // Get USDT balance
-      const usdtContract = await window.tronWeb.contract().at("TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"); // Mainnet USDT
+      const usdtContract = await window.tronWeb.contract().at("TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t");
       const usdtBal = await usdtContract.balanceOf(tronAddress).call();
       setTronUsdtBalance((usdtBal / 1e6).toFixed(2));
     } catch (error) {
@@ -119,30 +126,30 @@ export default function App() {
     <>
       <Navbar />
       <div className="container">
-      <h1>USDT, BNB & TRX Token Verifier</h1>
-      <div className="button-group">
-        <button onClick={connectBSCWallet}>Connect BSC Wallet</button>
-        <button onClick={connectTronWallet}>Connect Tron Wallet</button>
+        <div className="buttons">
+          <button onClick={connectBSCWallet}>Connect BSC Wallet</button>
+          <button onClick={connectTronWallet}>Connect Tron Wallet</button>
+        </div>
+
+        {walletAddress && (
+          <div className="card">
+            <h2>BSC Wallet</h2>
+            <p>Address: {walletAddress}</p>
+            <p>BNB Balance: {bnbBalance} BNB</p>
+            <p>USDT Balance: {usdtBalance} USDT</p>
+          </div>
+        )}
+
+        {tronAddress && (
+          <div className="card">
+            <h2>TRON Wallet</h2>
+            <p>Address: {tronAddress}</p>
+            <p>TRX Balance: {trxBalance} TRX</p>
+            <p>USDT Balance: {tronUsdtBalance} USDT</p>
+          </div>
+        )}
       </div>
-
-      {walletAddress && (
-        <div className="card">
-          <h2>BSC Wallet</h2>
-          <p>Address: {walletAddress}</p>
-          <p>BNB Balance: {bnbBalance} BNB</p>
-          <p>USDT Balance: {usdtBalance} USDT</p>
-        </div>
-      )}
-
-      {tronAddress && (
-        <div className="card">
-          <h2>TRON Wallet</h2>
-          <p>Address: {tronAddress}</p>
-          <p>TRX Balance: {trxBalance} TRX</p>
-          <p>USDT Balance: {tronUsdtBalance} USDT</p>
-        </div>
-      )}
-    </div>
     </>
   );
 }
+
