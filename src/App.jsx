@@ -4,6 +4,7 @@ import './App.css';
 import Navbar from './components/Navbar';
 
 const BSC_USDT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955";
+const TRON_USDT_ADDRESS = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
 const ERC20_ABI = [
   "function balanceOf(address) view returns (uint256)",
   "function decimals() view returns (uint8)",
@@ -33,7 +34,6 @@ export default function App() {
 
       let provider = new ethers.BrowserProvider(window.ethereum);
 
-      // Network handling
       const handleNetwork = async () => {
         const network = await provider.getNetwork();
         if (network.chainId !== 56) {
@@ -53,7 +53,6 @@ export default function App() {
 
       provider = await handleNetwork();
       
-      // Account handling
       const accounts = await provider.send("eth_requestAccounts", []);
       if (!accounts?.length) {
         alert("No accounts found. Please connect your Trust Wallet.");
@@ -64,18 +63,15 @@ export default function App() {
       const address = await signer.getAddress();
       setWalletAddress(address);
 
-      // Fetch BNB balance
       const bnbBalance = await provider.getBalance(address);
       setBnbBalance(ethers.formatEther(bnbBalance));
 
-      // Fetch USDT balance
       const usdtContract = new ethers.Contract(BSC_USDT_ADDRESS, ERC20_ABI, provider);
       const [balance, decimals] = await Promise.all([
         usdtContract.balanceOf(address),
         usdtContract.decimals()
       ]);
       
-      // Proper balance formatting
       const formattedBalance = ethers.formatUnits(balance, decimals);
       const displayBalance = parseFloat(formattedBalance).toFixed(2);
       setUsdtBalance(displayBalance);
@@ -85,7 +81,6 @@ export default function App() {
     }
   };
 
-  // Tron Wallet connection remains unchanged
   const connectTronWallet = async () => {
     if (typeof window.tronWeb === 'undefined') {
       alert("Please install TronLink wallet from the Chrome Web Store");
@@ -109,7 +104,10 @@ export default function App() {
       const trxBal = await window.tronWeb.trx.getBalance(tronAddress);
       setTrxBalance((trxBal / 1e6).toFixed(2));
 
-      const usdtContract = await window.tronWeb.contract().at("TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t");
+      const usdtContract = await window.tronWeb.contract(
+        ERC20_ABI,
+        TRON_USDT_ADDRESS
+      );
       const usdtBal = await usdtContract.balanceOf(tronAddress).call();
       setTronUsdtBalance((usdtBal / 1e6).toFixed(2));
     } catch (error) {
@@ -146,8 +144,8 @@ export default function App() {
           <div className="card">
             <h2>TRON Wallet</h2>
             <p>Address: {tronAddress}</p>
-            <p>TRX Balance: {trxBalance} TRX</p>
-            <p>USDT Balance: {tronUsdtBalance} USDT</p>
+            <p>TRX Balance: {trxBalance || '0.00'} TRX</p>
+            <p>USDT Balance: {tronUsdtBalance || '0.00'} USDT</p>
           </div>
         )}
       </div>
