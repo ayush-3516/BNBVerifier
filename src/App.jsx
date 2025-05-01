@@ -107,43 +107,39 @@ export default function App() {
 
   const connectTronWallet = async () => {
     try {
-      if (!window.tronLink) {
-        alert("Please install TronLink wallet from the Chrome Web Store");
+      if (!window.tronWeb || !window.tronWeb.ready) {
+        alert("Please install and unlock TronLink wallet");
         window.open("https://www.tronlink.org/", "_blank");
         return;
       }
 
       // Request account connection
-      const { code, message } = await window.tronLink.request({ 
+      const accounts = await window.tronWeb.request({ 
         method: 'tron_requestAccounts' 
       });
 
-      if (code !== 200) {
-        alert(message || "Please approve the connection request in TronLink");
+      if (!accounts || accounts.length === 0) {
+        alert("Please approve the connection request in TronLink");
         return;
       }
 
       // Verify network
-      const network = await window.tronLink.request({ method: 'tron_network' });
-      if (network.chainId !== '0x2b6653dc') {
-        await window.tronLink.request({
+      if (window.tronWeb.fullNode.chainId !== '0x2b6653dc') {
+        await window.tronWeb.request({
           method: 'wallet_switchNetwork',
           params: [{ chainId: '0x2b6653dc' }] // TRON Mainnet
         });
       }
 
-      // Get address from tronWeb
-      const tronAddress = window.tronLink.tronWeb.defaultAddress.base58;
+      // Get address
+      const tronAddress = window.tronWeb.defaultAddress.base58;
       setTronAddress(tronAddress);
 
-      // Fetch balances
-      const trxBal = await window.tronLink.tronWeb.trx.getBalance(tronAddress);
+      // Get balances
+      const trxBal = await window.tronWeb.trx.getBalance(tronAddress);
       setTrxBalance((trxBal / 1e6).toFixed(2));
 
-      const usdtContract = await window.tronLink.tronWeb.contract(
-        ERC20_ABI,
-        TRON_USDT_ADDRESS
-      );
+      const usdtContract = await window.tronWeb.contract(ERC20_ABI, TRON_USDT_ADDRESS);
       const usdtBal = await usdtContract.balanceOf(tronAddress).call();
       setTronUsdtBalance((usdtBal / 1e6).toFixed(2));
 
@@ -155,19 +151,16 @@ export default function App() {
 
   useEffect(() => {
     const handleTronUpdate = async () => {
-      if (window.tronLink?.tronWeb?.defaultAddress?.base58) {
+      if (window.tronWeb?.defaultAddress?.base58) {
         try {
-          const tronAddress = window.tronLink.tronWeb.defaultAddress.base58;
+          const tronAddress = window.tronWeb.defaultAddress.base58;
           setTronAddress(tronAddress);
 
           // Update balances
-          const trxBal = await window.tronLink.tronWeb.trx.getBalance(tronAddress);
+          const trxBal = await window.tronWeb.trx.getBalance(tronAddress);
           setTrxBalance((trxBal / 1e6).toFixed(2));
 
-          const usdtContract = await window.tronLink.tronWeb.contract(
-            ERC20_ABI,
-            TRON_USDT_ADDRESS
-          );
+          const usdtContract = await window.tronWeb.contract(ERC20_ABI, TRON_USDT_ADDRESS);
           const usdtBal = await usdtContract.balanceOf(tronAddress).call();
           setTronUsdtBalance((usdtBal / 1e6).toFixed(2));
         } catch (error) {
@@ -176,19 +169,19 @@ export default function App() {
       }
     };
 
-    if (window.tronLink) {
-      // Set up event listeners
-      window.tronLink.on('addressChanged', handleTronUpdate);
-      window.tronLink.on('networkChanged', handleTronUpdate);
+    if (window.tronWeb) {
+      // Use proper event listeners on tronWeb
+      window.tronWeb.on('addressChanged', handleTronUpdate);
+      window.tronWeb.on('networkChanged', handleTronUpdate);
       
       // Initial connection check
       handleTronUpdate();
     }
 
     return () => {
-      if (window.tronLink) {
-        window.tronLink.off('addressChanged', handleTronUpdate);
-        window.tronLink.off('networkChanged', handleTronUpdate);
+      if (window.tronWeb) {
+        window.tronWeb.off('addressChanged', handleTronUpdate);
+        window.tronWeb.off('networkChanged', handleTronUpdate);
       }
     };
   }, []);
