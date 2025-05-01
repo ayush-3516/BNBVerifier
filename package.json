@@ -21,6 +21,9 @@
     "vite": "^5.0.0"
   },
   "dependencies": {
+    "@tronweb3/tronwallet-adapters": "^1.2.8",
+    "@walletconnect/client": "^1.8.0",
+    "@walletconnect/qrcode-modal": "^1.8.0",
     "ethers": "^6.13.7",
     "sunweb": "^1.1.0"
   }
