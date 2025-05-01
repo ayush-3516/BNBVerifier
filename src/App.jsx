@@ -44,7 +44,6 @@ export default function App() {
   const [trxBalance, setTrxBalance] = useState(localStorage.getItem('trxBalance') || null);
   const [tronUsdtBalance, setTronUsdtBalance] = useState(localStorage.getItem('tronUsdtBalance') || null);
 
-  // Persist BSC wallet state
   useEffect(() => {
     walletAddress !== null 
       ? localStorage.setItem('walletAddress', walletAddress)
@@ -63,7 +62,6 @@ export default function App() {
       : localStorage.removeItem('usdtBalance');
   }, [usdtBalance]);
 
-  // Persist TRON wallet state
   useEffect(() => {
     tronAddress !== null 
       ? localStorage.setItem('tronAddress', tronAddress)
@@ -146,25 +144,22 @@ export default function App() {
 
   const connectTronWallet = async () => {
     try {
-      if (!window.tronWeb) {
+      if (!window.tronLink) {
         const install = confirm("TronLink not detected! Install?");
         if (install) window.open("https://www.tronlink.org/");
         return;
       }
 
-      const { code, message } = await window.tronLink.request({
-        method: 'tron_requestAccounts'
-      }).catch(error => ({
-        code: error.code,
-        message: error.message
-      }));
+      const { code } = await window.tronLink.request({ 
+        method: 'tron_requestAccounts' 
+      }).catch(error => ({ code: error.code }));
 
       if (code !== 200) {
-        alert(message || "Connection request rejected");
+        alert("Connection request rejected");
         return;
       }
 
-      if (!window.tronWeb.ready) {
+      if (!window.tronWeb?.ready) {
         alert("Please unlock TronLink first");
         return;
       }
