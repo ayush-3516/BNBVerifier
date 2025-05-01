@@ -99,4 +99,140 @@ export default function App() {
           await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s
           const newChainId = window.tronWeb.fullNode.chainId;
           const newChainIdNumber = parseInt(newChainId, newChainId.startsWith('0x') ? 16 : 10);
-          console.log(`[TRON] Post-switch chain ID: ${newChainIdNumber
+          console.log(`[TRON] Post-switch chain ID: ${newChainIdNumber}`);
+
+          if (newChainIdNumber !== TRON_MAINNET_DECIMAL) {
+            alert(`Still on wrong network (ID: ${newChainIdNumber}). Please switch manually.`);
+            return;
+          }
+          
+          console.log('[TRON] Network switch successful, reloading...');
+          window.location.reload();
+          return;
+        } catch (error) {
+          console.error('[TRON] Switch error:', error);
+          alert(`Switch failed: ${error.message}. Please switch manually to TRON Mainnet.`);
+          return;
+        }
+      }
+
+      console.log('[TRON] Network validated, getting address...');
+      const tronAddress = window.tronWeb.defaultAddress.base58;
+      if (!window.tronWeb.isAddress(tronAddress)) {
+        throw new Error(`Invalid address: ${tronAddress}`);
+      }
+      setTronAddress(tronAddress);
+
+      console.log('[TRON] Fetching balances...');
+      const [trxBal, usdtContract] = await Promise.all([
+        window.tronWeb.trx.getBalance(tronAddress),
+        window.tronWeb.contract(ERC20_ABI, TRON_USDT_ADDRESS)
+      ]);
+
+      console.log('[TRON] Raw balances:', { trxBal, usdtContract });
+      setTrxBalance((trxBal / 1e6).toFixed(2));
+
+      const [balance, decimals] = await Promise.all([
+        usdtContract.balanceOf(tronAddress).call(),
+        usdtContract.decimals().call()
+      ]);
+      console.log('[TRON] USDT values:', { balance, decimals });
+      setTronUsdtBalance((balance / (10 ** decimals)).toFixed(2));
+
+      console.log('[TRON] Connection completed successfully');
+    } catch (error) {
+      console.error("[TRON] Final error:", error);
+      alert(error.message.includes("rejected") 
+        ? "Connection canceled" 
+        : error.message || "TRON connection error");
+    }
+  };
+
+  // Tron Auto-Update with debug
+  useEffect(() => {
+    const handleTronUpdate = async () => {
+      console.log('[TRON] Auto-update triggered');
+      if (window.tronWeb?.ready && window.tronWeb.defaultAddress?.base58) {
+        try {
+          const currentChainId = window.tronWeb.fullNode.chainId;
+          const chainIdNumber = parseInt(currentChainId, currentChainId.startsWith('0x') ? 16 : 10);
+          
+          console.log(`[TRON] Auto-update chain check: ${chainIdNumber} vs ${TRON_MAINNET_DECIMAL}`);
+          if (chainIdNumber !== TRON_MAINNET_DECIMAL) {
+            console.warn('[TRON] Auto-update network mismatch');
+            return;
+          }
+
+          const address = window.tronWeb.defaultAddress.base58;
+          console.log('[TRON] Auto-update address:', address);
+          if (!window.tronWeb.isAddress(address)) return;
+
+          setTronAddress(address);
+
+          const [trxBal, usdtContract] = await Promise.all([
+            window.tronWeb.trx.getBalance(address),
+            window.tronWeb.contract(ERC20_ABI, TRON_USDT_ADDRESS)
+          ]);
+
+          setTrxBalance((trxBal / 1e6).toFixed(2));
+
+          const [balance, decimals] = await Promise.all([
+            usdtContract.balanceOf(address).call(),
+            usdtContract.decimals().call()
+          ]);
+          setTronUsdtBalance((balance / (10 ** decimals)).toFixed(2));
+
+          console.log('[TRON] Auto-update completed');
+        } catch (error) {
+          console.log("[TRON] Auto-update error:", error);
+        }
+      }
+    };
+
+    if (window.tronWeb) {
+      console.log('[TRON] Setting up listeners');
+      window.tronWeb.on('addressChanged', handleTronUpdate);
+      window.tronWeb.on('chainChanged', handleTronUpdate);
+      handleTronUpdate();
+    }
+
+    return () => {
+      if (window.tronWeb) {
+        console.log('[TRON] Cleaning up listeners');
+        window.tronWeb.off('addressChanged', handleTronUpdate);
+        window.tronWeb.off('chainChanged', handleTronUpdate);
+      }
+    };
+  }, []);
+
+  // JSX remains the same
+  return (
+    <>
+      <Navbar />
+      <div className="container">
+        <div className="buttons">
+          <button onClick={connectBSCWallet}>Connect BSC Wallet</button>
+          <button onClick={connectTronWallet}>Connect Tron Wallet</button>
+        </div>
+
+        {walletAddress && (
+          <div className="card">
+            <h2>BSC Wallet</h2>
+            <p>Address: {walletAddress}</p>
+            <p>BNB Balance: {bnbBalance} BNB</p>
+            <p>USDT Balance: {usdtBalance || '0.00'} USDT</p>
+          </div>
+        )}
+
+        {tronAddress && (
+          <div className="card">
+            <h2>TRON Wallet</h2>
+            <p>Address: {tronAddress}</p>
+            <p>TRX Balance: {trxBalance || '0.00'} TRX</p>
+            <p>USDT Balance: {tronUsdtBalance || '0.00'} USDT</p>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
