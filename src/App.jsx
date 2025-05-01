@@ -25,9 +25,11 @@ export default function App() {
     }
 
     try {
-      // Check if we're in an iframe
-      if (window.self !== window.top) {
-        alert("Please open this DApp directly in Trust Wallet's browser instead of through an iframe");
+      // Check if we're using Trust Wallet's browser
+      const isTrustWallet = window.ethereum?.isTrust || false;
+      
+      if (!isTrustWallet) {
+        alert("Please open this DApp directly in Trust Wallet's browser");
         return;
       }
 
