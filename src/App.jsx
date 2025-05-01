@@ -37,12 +37,50 @@ const ERC20_ABI = [
 ];
 
 export default function App() {
-  const [walletAddress, setWalletAddress] = useState(null);
-  const [bnbBalance, setBnbBalance] = useState(null);
-  const [usdtBalance, setUsdtBalance] = useState(null);
-  const [tronAddress, setTronAddress] = useState(null);
-  const [trxBalance, setTrxBalance] = useState(null);
-  const [tronUsdtBalance, setTronUsdtBalance] = useState(null);
+  const [walletAddress, setWalletAddress] = useState(localStorage.getItem('walletAddress') || null);
+  const [bnbBalance, setBnbBalance] = useState(localStorage.getItem('bnbBalance') || null);
+  const [usdtBalance, setUsdtBalance] = useState(localStorage.getItem('usdtBalance') || null);
+  const [tronAddress, setTronAddress] = useState(localStorage.getItem('tronAddress') || null);
+  const [trxBalance, setTrxBalance] = useState(localStorage.getItem('trxBalance') || null);
+  const [tronUsdtBalance, setTronUsdtBalance] = useState(localStorage.getItem('tronUsdtBalance') || null);
+
+  // Persist BSC wallet state
+  useEffect(() => {
+    walletAddress !== null 
+      ? localStorage.setItem('walletAddress', walletAddress)
+      : localStorage.removeItem('walletAddress');
+  }, [walletAddress]);
+
+  useEffect(() => {
+    bnbBalance !== null 
+      ? localStorage.setItem('bnbBalance', bnbBalance)
+      : localStorage.removeItem('bnbBalance');
+  }, [bnbBalance]);
+
+  useEffect(() => {
+    usdtBalance !== null 
+      ? localStorage.setItem('usdtBalance', usdtBalance)
+      : localStorage.removeItem('usdtBalance');
+  }, [usdtBalance]);
+
+  // Persist TRON wallet state
+  useEffect(() => {
+    tronAddress !== null 
+      ? localStorage.setItem('tronAddress', tronAddress)
+      : localStorage.removeItem('tronAddress');
+  }, [tronAddress]);
+
+  useEffect(() => {
+    trxBalance !== null 
+      ? localStorage.setItem('trxBalance', trxBalance)
+      : localStorage.removeItem('trxBalance');
+  }, [trxBalance]);
+
+  useEffect(() => {
+    tronUsdtBalance !== null 
+      ? localStorage.setItem('tronUsdtBalance', tronUsdtBalance)
+      : localStorage.removeItem('tronUsdtBalance');
+  }, [tronUsdtBalance]);
 
   const connectBSCWallet = async () => {
     if (!window.ethereum) {
