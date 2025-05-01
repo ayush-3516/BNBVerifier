@@ -106,48 +106,67 @@ export default function App() {
   };
 
   const connectTronWallet = async () => {
-    try {
-      // if (!window.tronWeb || !window.tronWeb.ready) {
-        // alert("Please install and unlock TronLink wallet");
-        // window.open("https://www.tronlink.org/", "_blank");
-        // return;
-      // }
-
-      // Request account connection
-      const accounts = await window.tronWeb.request({ 
-        method: 'tron_requestAccounts' 
-      });
-
-      if (!accounts || accounts.length === 0) {
-        alert("Please approve the connection request in TronLink");
-        return;
-      }
-
-      // Verify network
-      if (window.tronWeb.fullNode.chainId !== '0x2b6653dc') {
-        await window.tronWeb.request({
-          method: 'wallet_switchNetwork',
-          params: [{ chainId: '0x2b6653dc' }] // TRON Mainnet
-        });
-      }
-
-      // Get address
-      const tronAddress = window.tronWeb.defaultAddress.base58;
-      setTronAddress(tronAddress);
-
-      // Get balances
-      const trxBal = await window.tronWeb.trx.getBalance(tronAddress);
-      setTrxBalance((trxBal / 1e6).toFixed(2));
-
-      const usdtContract = await window.tronWeb.contract(ERC20_ABI, TRON_USDT_ADDRESS);
-      const usdtBal = await usdtContract.balanceOf(tronAddress).call();
-      setTronUsdtBalance((usdtBal / 1e6).toFixed(2));
-
-    } catch (error) {
-      console.error("Tron connection error:", error);
-      alert(`Connection failed: ${error.message || "Check TronLink and try again"}`);
+  try {
+    // 1. Check TronLink availability
+    if (!window.tronWeb || !window.tronWeb.ready) {
+      alert("Please install and unlock TronLink wallet");
+      window.open("https://www.tronlink.org/", "_blank");
+      return;
     }
-  };
+
+    // 2. Request account connection
+    const accounts = await window.tronWeb.request({ 
+      method: 'tron_requestAccounts' 
+    }).catch(err => {
+      if (err.code === 4001) throw new Error("Connection rejected by user");
+      throw err;
+    });
+
+    if (!accounts?.length) {
+      alert("Please approve the connection request in TronLink");
+      return;
+    }
+
+    // 3. Network validation
+    const tronChainId = '0x2b6653dc'; // TRON Mainnet
+    if (window.tronWeb.fullNode.chainId !== tronChainId) {
+      alert("Please switch to TRON Mainnet in TronLink");
+      return;
+    }
+
+    // 4. Get validated address
+    const tronAddress = window.tronWeb.defaultAddress.base58;
+    if (!tronWeb.isAddress(tronAddress)) {
+      throw new Error("Invalid TRON address");
+    }
+    setTronAddress(tronAddress);
+
+    // 5. Fetch balances with proper decimal handling
+    const [trxBal, usdtContract] = await Promise.all([
+      window.tronWeb.trx.getBalance(tronAddress),
+      window.tronWeb.contract(ERC20_ABI, TRON_USDT_ADDRESS)
+    ]);
+
+    // TRX Balance (native currency)
+    setTrxBalance((trxBal / 1e6).toFixed(2));
+
+    // USDT Balance (TRC20)
+    const [balance, decimals] = await Promise.all([
+      usdtContract.balanceOf(tronAddress).call(),
+      usdtContract.decimals().call()
+    ]);
+    
+    const formattedBalance = balance / (10 ** decimals);
+    setTronUsdtBalance(formattedBalance.toFixed(2));
+
+  } catch (error) {
+    console.error("Tron connection error:", error);
+    const message = error.message.includes("rejected") 
+      ? "Connection canceled by user" 
+      : `Failed: ${error.message || "Check TronLink and network"}`;
+    alert(message);
+  }
+};
 
   useEffect(() => {
     const handleTronUpdate = async () => {
