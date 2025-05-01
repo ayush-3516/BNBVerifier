@@ -12,9 +12,76 @@ const ERC20_ABI = [
 ];
 
 export default function App() {
-  // State variables remain the same
+    const [walletAddress, setWalletAddress] = useState(null);
+  const [bnbBalance, setBnbBalance] = useState(null);
+  const [usdtBalance, setUsdtBalance] = useState(null);
+  const [tronAddress, setTronAddress] = useState(null);
+  const [trxBalance, setTrxBalance] = useState(null);
+  const [tronUsdtBalance, setTronUsdtBalance] = useState(null);
 
-  // BSC Wallet Connection (unchanged)
+  // BSC Wallet Connection
+  const connectBSCWallet = async () => {
+    if (!window.ethereum) {
+      alert("Please install Trust Wallet and open in Trust Wallet's browser");
+      return;
+    }
+
+    try {
+      const isTrustWallet = !!window.ethereum.isTrust || !!window.ethereum.isTrustWallet;
+      if (!isTrustWallet) {
+        alert("Please use Trust Wallet's built-in browser");
+        return;
+      }
+
+      let provider = new ethers.BrowserProvider(window.ethereum);
+
+      const handleNetwork = async () => {
+        const network = await provider.getNetwork();
+        if (network.chainId !== 56) {
+          try {
+            await window.ethereum.request({
+              method: 'wallet_switchEthereumChain',
+              params: [{ chainId: '0x38' }],
+            });
+            provider = new ethers.BrowserProvider(window.ethereum);
+          } catch {
+            alert("Please switch to BSC Mainnet in Trust Wallet");
+            throw new Error("Network switch failed");
+          }
+        }
+        return provider;
+      };
+
+      provider = await handleNetwork();
+      
+      const accounts = await provider.send("eth_requestAccounts", []);
+      if (!accounts?.length) {
+        alert("No accounts found");
+        return;
+      }
+
+      const signer = await provider.getSigner();
+      const address = await signer.getAddress();
+      setWalletAddress(address);
+
+      const [bnbBal, usdtContract] = await Promise.all([
+        provider.getBalance(address),
+        new ethers.Contract(BSC_USDT_ADDRESS, ERC20_ABI, provider)
+      ]);
+
+      setBnbBalance(ethers.formatEther(bnbBal));
+
+      const [usdtBal, decimals] = await Promise.all([
+        usdtContract.balanceOf(address),
+        usdtContract.decimals()
+      ]);
+      
+      setUsdtBalance(parseFloat(ethers.formatUnits(usdtBal, decimals)).toFixed(2));
+    } catch (error) {
+      console.error("BSC Error:", error);
+      alert(error.message || "BSC connection failed");
+    }
+  };
 
   // TRON Wallet Connection with enhanced checks
   const connectTronWallet = async () => {
