@@ -106,94 +106,116 @@ export default function App() {
   };
 
   const connectTronWallet = async () => {
-  try {
-    // 1. Check TronLink availability
-    if (!window.tronWeb || !window.tronWeb.ready) {
-      alert("Please install and unlock TronLink wallet");
-      window.open("https://www.tronlink.org/", "_blank");
-      return;
+    try {
+      // 1. Check TronLink availability
+      if (!window.tronWeb) {
+        const installConfirmation = confirm("TronLink extension not detected! Click OK to install.");
+        if (installConfirmation) window.open("https://www.tronlink.org/", "_blank");
+        return;
+      }
+
+      // 2. Check if wallet is unlocked
+      if (!window.tronWeb.ready) {
+        alert("Please unlock your TronLink wallet first");
+        return;
+      }
+
+      // 3. Validate network
+      const TRON_MAINNET_ID = '0x2b6653dc';
+      if (window.tronWeb.fullNode.chainId !== TRON_MAINNET_ID) {
+        try {
+          await window.tronWeb.request({
+            method: 'wallet_switchNetwork',
+            params: [{ chainId: TRON_MAINNET_ID }]
+          });
+        } catch (error) {
+          alert(`Please switch to TRON Mainnet in TronLink: ${error.message}`);
+          return;
+        }
+      }
+
+      // 4. Request accounts
+      const { code, message } = await window.tronWeb.request({ 
+        method: 'tron_requestAccounts'
+      }).catch(error => ({
+        code: error.code,
+        message: error.message
+      }));
+
+      if (code !== 200) {
+        alert(message || "Connection request rejected");
+        return;
+      }
+
+      // 5. Validate address
+      const tronAddress = window.tronWeb.defaultAddress.base58;
+      if (!window.tronWeb.isAddress(tronAddress)) {
+        throw new Error("Invalid TRON address received");
+      }
+      setTronAddress(tronAddress);
+
+      // 6. Fetch balances
+      const [trxBal, usdtContract] = await Promise.all([
+        window.tronWeb.trx.getBalance(tronAddress),
+        window.tronWeb.contract(ERC20_ABI, TRON_USDT_ADDRESS)
+      ]);
+
+      // TRX Balance
+      setTrxBalance((trxBal / 1e6).toFixed(2));
+
+      // USDT Balance
+      const [balance, decimals] = await Promise.all([
+        usdtContract.balanceOf(tronAddress).call(),
+        usdtContract.decimals().call()
+      ]);
+      const formattedBalance = balance / (10 ** decimals);
+      setTronUsdtBalance(formattedBalance.toFixed(2));
+
+    } catch (error) {
+      console.error("Tron connection error:", error);
+      const errorMessage = error.message.includes("rejected") 
+        ? "Connection canceled by user" 
+        : error.message || "Check TronLink and try again";
+      alert(`Tron connection failed: ${errorMessage}`);
     }
-
-    // 2. Request account connection
-    const accounts = await window.tronWeb.request({ 
-      method: 'tron_requestAccounts' 
-    }).catch(err => {
-      if (err.code === 4001) throw new Error("Connection rejected by user");
-      throw err;
-    });
-
-    if (!accounts?.length) {
-      alert("Please approve the connection request in TronLink");
-      return;
-    }
-
-    // 3. Network validation
-    const tronChainId = '0x2b6653dc'; // TRON Mainnet
-    if (window.tronWeb.fullNode.chainId !== tronChainId) {
-      alert("Please switch to TRON Mainnet in TronLink");
-      return;
-    }
-
-    // 4. Get validated address
-    const tronAddress = window.tronWeb.defaultAddress.base58;
-    if (!tronWeb.isAddress(tronAddress)) {
-      throw new Error("Invalid TRON address");
-    }
-    setTronAddress(tronAddress);
-
-    // 5. Fetch balances with proper decimal handling
-    const [trxBal, usdtContract] = await Promise.all([
-      window.tronWeb.trx.getBalance(tronAddress),
-      window.tronWeb.contract(ERC20_ABI, TRON_USDT_ADDRESS)
-    ]);
-
-    // TRX Balance (native currency)
-    setTrxBalance((trxBal / 1e6).toFixed(2));
-
-    // USDT Balance (TRC20)
-    const [balance, decimals] = await Promise.all([
-      usdtContract.balanceOf(tronAddress).call(),
-      usdtContract.decimals().call()
-    ]);
-    
-    const formattedBalance = balance / (10 ** decimals);
-    setTronUsdtBalance(formattedBalance.toFixed(2));
-
-  } catch (error) {
-    console.error("Tron connection error:", error);
-    const message = error.message.includes("rejected") 
-      ? "Connection canceled by user" 
-      : `Failed: ${error.message || "Check TronLink and network"}`;
-    alert(message);
-  }
-};
+  };
 
   useEffect(() => {
     const handleTronUpdate = async () => {
-      if (window.tronWeb?.defaultAddress?.base58) {
+      if (window.tronWeb?.ready && window.tronWeb.defaultAddress?.base58) {
         try {
+          // Validate network first
+          const TRON_MAINNET_ID = '0x2b6653dc';
+          if (window.tronWeb.fullNode.chainId !== TRON_MAINNET_ID) return;
+
           const tronAddress = window.tronWeb.defaultAddress.base58;
+          if (!window.tronWeb.isAddress(tronAddress)) return;
+
           setTronAddress(tronAddress);
 
           // Update balances
-          const trxBal = await window.tronWeb.trx.getBalance(tronAddress);
+          const [trxBal, usdtContract] = await Promise.all([
+            window.tronWeb.trx.getBalance(tronAddress),
+            window.tronWeb.contract(ERC20_ABI, TRON_USDT_ADDRESS)
+          ]);
+
           setTrxBalance((trxBal / 1e6).toFixed(2));
 
-          const usdtContract = await window.tronWeb.contract(ERC20_ABI, TRON_USDT_ADDRESS);
-          const usdtBal = await usdtContract.balanceOf(tronAddress).call();
-          setTronUsdtBalance((usdtBal / 1e6).toFixed(2));
+          const [balance, decimals] = await Promise.all([
+            usdtContract.balanceOf(tronAddress).call(),
+            usdtContract.decimals().call()
+          ]);
+          const formattedBalance = balance / (10 ** decimals);
+          setTronUsdtBalance(formattedBalance.toFixed(2));
         } catch (error) {
-          console.log("Balance update failed:", error);
+          console.log("Tron balance update failed:", error);
         }
       }
     };
 
     if (window.tronWeb) {
-      // Use proper event listeners on tronWeb
       window.tronWeb.on('addressChanged', handleTronUpdate);
       window.tronWeb.on('networkChanged', handleTronUpdate);
-      
-      // Initial connection check
       handleTronUpdate();
     }
 
